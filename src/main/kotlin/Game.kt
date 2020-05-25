@@ -1,99 +1,114 @@
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
 
-interface Entity {
-    fun cells()
-}
-
 class Cell(val xcoord: Double,
            val ycoord: Double,
            val cx: Int,
-           val cy: Int) {
+           val cy: Int
+) {
     fun moveX(move: Double): Cell {
         return Cell(xcoord + move, ycoord, cx, cy)
     }
 
     companion object {
-        const val CELL_SIZE: Double = 16.0
-        const val MARGIN: Double = 0.4
+        const val CELL_SIZE: Double = 18.0
+        const val MARGIN: Double = 0.0
+        const val YCELLS: Int = 30
+        const val XCELLS: Int = 60
     }
 }
+data class Theme(val boardShade1: String,
+                 val boardShade2: String,
+                 val snakeColor: String,
+                 val foodColor: String
+)
+
+
 
 enum class Direction {
     UP, DOWN, LEFT, RIGHT
 }
 
-class Game(val canvas: HTMLCanvasElement, val ctx: CanvasRenderingContext2D) {
+val DEFAULT_THEME = Theme("#070709", "#121417", "#0466c8", "#0466c8" )
 
-    private val ycells = 30
-    private val xcells = 60
-    private val margin = Cell.MARGIN
+class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingContext2D>,
+           private val boardCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingContext2D>,
+           private val theme: Theme = DEFAULT_THEME) {
+
+    private val ycells = Cell.YCELLS
+    private val xcells = Cell.XCELLS
     private val cw = Cell.CELL_SIZE
-    private val snake = Snake(initialLength =4)
+    private val snake = Snake(initialLength = 3)
+
+    private val gameCanvas = gameCanvasPair.first
+    private val gameContext = gameCanvasPair.second
+
+    private val boardCanvas = boardCanvasPair.first
+    private val boardContext = boardCanvasPair.second
+
+    val width = ((xcells * Cell.CELL_SIZE)).toInt()
+    val height = ((ycells * Cell.CELL_SIZE)).toInt()
 
     init {
-        canvas.width = ((xcells * Cell.CELL_SIZE)).toInt()
-        canvas.height = ((ycells * Cell.CELL_SIZE)).toInt()
+        gameCanvas.width = width
+        gameCanvas.height = height
+
+        boardCanvas.width = width
+        boardCanvas.height = height
     }
     // cells of all position
-    var cells = mutableListOf<MutableList<Cell>>()
+    private lateinit var cells: List<MutableList<Cell>>
 
     init {
+        // initialize cells for reference on the static
+        // cell in the game
+        val cellsList = mutableListOf<MutableList<Cell>>()
         for (y in 0 until ycells) {
-            cells.add(mutableListOf())
+            cellsList.add(mutableListOf())
         }
         for (y in 0 until ycells) {
-            val cellRow = cells[y]
+            val cellRow = cellsList[y]
             for (x in 0 until xcells) {
-                val ycoord = if (y == 0) y.toDouble() else (cw * y) + margin
-                val xcoord = if (x == 0) x.toDouble() else (cw * x) + margin
-                val cell = Cell(xcoord, ycoord, x, y)
-                cellRow.add(cell)
-                ctx.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
+                val ycoord = if (y == 0) y.toDouble() else (cw * y)
+                val xcoord = if (x == 0) x.toDouble() else (cw * x)
+                cellRow.add(Cell(xcoord, ycoord, x, y))
             }
         }
-        // draw snake
+        cells = cellsList.toList()
 
     }
     private var elapseInterval = 0.0
     private var lastTimestamp = 0.0
     private var minInterval = 1000/120
 
-    fun drawCells() {
+    fun drawBoard() {
 
-        ctx.fillStyle = "black"
-        for (y in 0 until cells.size) {
+        for (y in cells.indices) {
             val row = cells[y]
-            for (x in 0 until row.size) {
+            val startColor = if ( y % 2 == 0 ) theme.boardShade1 else theme.boardShade2
+            val endColor = if ( y % 2 != 0 ) theme.boardShade1 else theme.boardShade2
+            for (x in row.indices) {
                 val cell = row[x]
-                ctx.clearRect(cell.xcoord,  cell.ycoord,  cw , cw)
-                ctx.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
+                val color = if (x % 2 == 0) startColor else endColor
+                boardContext.fillStyle = color
+                boardContext.clearRect(cell.xcoord,  cell.ycoord,  cw , cw)
+                boardContext.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
             }
         }
     }
-    private fun drawRows(row: Int) {
-
-        ctx.fillStyle = "black"
-        val row = cells[row]
-        for (x in 0 until row.size) {
-            val cell = row[x]
-            ctx.clearRect(cell.xcoord,  cell.ycoord,  cw , cw)
-            ctx.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
-        }
-
-    }
 
     fun init() {
+        drawBoard()
         snake.init(this)
-        ctx.fillStyle = "pink"
+        gameContext.fillStyle = theme.snakeColor
         snake.render().forEach { cell ->
-            ctx.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
+            gameContext.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
         }
     }
     fun getCell(x: Int, y: Int): Cell {
         return cells[y][x]
     }
-    var count = 0
+
     fun draw(timeStamp: Double) {
 
         if (lastTimestamp == 0.0) {
@@ -103,23 +118,23 @@ class Game(val canvas: HTMLCanvasElement, val ctx: CanvasRenderingContext2D) {
         val diff = timeStamp - lastTimestamp
 
         if (diff >= minInterval) {
-            clearCanvas()
-            drawCells()
-            // drawRows(0)
+            clearGameCanvas()
             snake.update(diff)
 
-            ctx.fillStyle = "pink"
+            gameContext.fillStyle = theme.snakeColor
             snake.render().forEach { cell ->
-                ctx.fillRect(cell.xcoord, cell.ycoord, cw, cw)
+                gameContext.fillRect(cell.xcoord, cell.ycoord, cw, cw)
             }
             lastTimestamp = timeStamp
         }
     }
 
-    private fun clearCanvas() {
-        ctx.clearRect(0.0, 0.0, canvas.width * 1.0, canvas.height * 1.0)
-
+    private fun clearGameCanvas() {
+        gameContext.clearRect(0.0, 0.0, gameCanvas.width * 1.0, gameCanvas.height * 1.0)
     }
 
+    fun onDirectionChange(direction: Direction) {
+        snake.changeDirection(direction)
+    }
 
 }
