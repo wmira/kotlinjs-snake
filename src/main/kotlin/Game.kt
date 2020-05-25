@@ -1,5 +1,7 @@
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
+import org.w3c.dom.Image
+import kotlin.random.Random
 
 class Cell(val xcoord: Double,
            val ycoord: Double,
@@ -58,7 +60,7 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     }
     // cells of all position
     private lateinit var cells: List<MutableList<Cell>>
-
+    private lateinit var food: Food
     init {
         // initialize cells for reference on the static
         // cell in the game
@@ -101,9 +103,12 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
         drawBoard()
         snake.init(this)
         gameContext.fillStyle = theme.snakeColor
-        snake.render().forEach { cell ->
-            gameContext.fillRect(cell.xcoord,  cell.ycoord,  cw , cw)
-        }
+        snake.render(gameContext)
+
+        food = Food(this)
+        food.generateFood(snake)
+        gameContext.fillStyle = theme.foodColor
+        food.render(gameContext)
     }
     fun getCell(x: Int, y: Int): Cell {
         return cells[y][x]
@@ -123,9 +128,10 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
             snake.update(agg)
 
             gameContext.fillStyle = theme.snakeColor
-            snake.render().forEach { cell ->
-                gameContext.fillRect(cell.xcoord, cell.ycoord, cw, cw)
-            }
+            snake.render(gameContext)
+
+            gameContext.fillStyle = theme.foodColor
+            food.render(gameContext)
             lastTimestamp = timeStamp
             agg = 0.0
         }
@@ -138,5 +144,34 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     fun onDirectionChange(direction: Direction) {
         snake.changeDirection(direction)
     }
+}
 
+
+class Food(val game: Game) {
+
+    private lateinit var food: CellPosition
+    private var foodImg: String = ""
+    fun generateFood(snake: Snake) {
+        while (true) {
+            val x = Random.nextInt(0, Cell.XCELLS )
+            val y = Random.nextInt(0, Cell.YCELLS )
+            if (snake.isPartInPosition(x, y) ) {
+                continue
+            } else {
+                food = CellPosition(x, y)
+                break
+            }
+        }
+        foodImg = FoodImage.FOOD_IMAGES[Random.nextInt(0, FoodImage.FOOD_IMAGES.size)]
+    }
+
+    fun render(ctx: CanvasRenderingContext2D) {
+        val cell = game.getCell(food.x, food.y)
+        val image = Image();
+        image.onload = {
+            ctx.drawImage(image, cell.xcoord, cell.ycoord)
+        }
+        // ctx.fillRect(cell.xcoord, cell.ycoord, Cell.CELL_SIZE, Cell.CELL_SIZE)
+        image.src = foodImg
+    }
 }

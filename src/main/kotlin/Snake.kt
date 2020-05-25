@@ -1,4 +1,5 @@
 import Cell.Companion.CELL_SIZE
+import org.w3c.dom.CanvasRenderingContext2D
 import kotlin.math.max
 import kotlin.math.min
 
@@ -70,17 +71,17 @@ class SnakePart(val direction: Direction,
                 val next: CellPosition,
                 val coordinate: Coordinate) {
     private val maxMove = when(direction) {
-        Direction.RIGHT -> next.x * Cell.CELL_SIZE
-        Direction.LEFT -> (next.x) * Cell.CELL_SIZE
-        Direction.DOWN -> next.y * Cell.CELL_SIZE
-        Direction.UP -> (next.y) * Cell.CELL_SIZE
+        Direction.RIGHT -> next.x * CELL_SIZE
+        Direction.LEFT -> (next.x) * CELL_SIZE
+        Direction.DOWN -> next.y * CELL_SIZE
+        Direction.UP -> (next.y) * CELL_SIZE
     }
     fun isCompletelyInNextCell(): Boolean {
         return when(direction) {
-            Direction.RIGHT -> coordinate.x == (next.x.toInt() * Cell.CELL_SIZE)
-            Direction.LEFT -> coordinate.x == (next.x.toInt() * Cell.CELL_SIZE)
-            Direction.DOWN -> coordinate.y == (next.y.toInt() * Cell.CELL_SIZE)
-            Direction.UP -> coordinate.y == (next.y.toInt() * Cell.CELL_SIZE)
+            Direction.RIGHT -> coordinate.x == (next.x.toInt() * CELL_SIZE)
+            Direction.LEFT -> coordinate.x == (next.x.toInt() * CELL_SIZE)
+            Direction.DOWN -> coordinate.y == (next.y.toInt() * CELL_SIZE)
+            Direction.UP -> coordinate.y == (next.y.toInt() * CELL_SIZE)
         }
 
     }
@@ -104,7 +105,7 @@ class Snake(private val initialLength: Int = 0,
     private lateinit var game: Game
     private var direction = initialDirection
     private var nextDirection: Direction? = null
-    private val cellPerSecond = (CELL_SIZE * 8)
+    private val cellPerSecond = (CELL_SIZE * 20)
     private val turns = mutableMapOf<CellPosition, Direction>()
 
     fun init(gameInstance: Game) {
@@ -117,15 +118,37 @@ class Snake(private val initialLength: Int = 0,
         }
     }
 
-    fun render(): List<Cell> {
-        return snake.map {
-            // FIXME should not be a cell
-            Cell(it.coordinate.x, it.coordinate.y, Cell.CELL_SIZE.toInt(), Cell.CELL_SIZE.toInt())
+    fun render(ctx: CanvasRenderingContext2D): Unit {
+        snake.forEachIndexed { index, part ->
+            // draw the move
+            ctx.fillRect(part.coordinate.x,  part.coordinate.y, CELL_SIZE , CELL_SIZE)
+            // now check if we need to render on the next cell (if we are turning)
+            if (index > 0) {
+                val prevSnake = snake[index - 1]
+                if (prevSnake.direction !== part.direction) {
+                    when (part.direction) {
+                        Direction.RIGHT -> {
+                            ctx.fillRect(part.next.x * CELL_SIZE, part.coordinate.y, CELL_SIZE, CELL_SIZE)
+                        }
+                        Direction.LEFT -> {
+                            ctx.fillRect(part.next.x  * CELL_SIZE, part.coordinate.y, CELL_SIZE, CELL_SIZE)
+                        }
+                        Direction.DOWN -> {
+                            ctx.fillRect(part.coordinate.x, part.next.y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                        }
+                        Direction.UP -> {
+                            ctx.fillRect(part.coordinate.x,  part.next.y  * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                        }
+                    }
+                }
+            }
         }
     }
 
-    fun head(): SnakePart {
-        return snake[snake.size - 1]
+    fun isPartInPosition(x: Int, y: Int): Boolean {
+        return snake.filter {
+            it.start.x == x && it.start.y == y
+        }.isNotEmpty()
     }
 
     fun update(interval: Double): Unit {
