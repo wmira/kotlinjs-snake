@@ -1,4 +1,5 @@
 import Cell.Companion.CELL_SIZE
+import kotlin.math.max
 import kotlin.math.min
 
 class CellPosition(val x: Int, val y: Int) {
@@ -45,39 +46,56 @@ class Coordinate(val x: Double, val y: Double) {
         return Coordinate(x, min(y + totalToMove, max))
     }
 
-    fun move(totalToMove: Double, direction: Direction, max: Double): Coordinate {
+    fun move(totalToMove: Double, direction: Direction, maxMove: Double): Coordinate {
         return when(direction) {
-            Direction.RIGHT -> moveX(totalToMove, max)
-            Direction.DOWN -> moveY(totalToMove, max)
-            Direction.LEFT -> moveX(totalToMove * -1, max)
-            Direction.UP -> moveY(totalToMove * -1, max)
+            Direction.RIGHT -> moveX(totalToMove, maxMove)
+            Direction.DOWN -> moveY(totalToMove, maxMove)
+            Direction.LEFT -> {
+                return Coordinate(max(x - (totalToMove), maxMove), y);
+            }
+            Direction.UP -> {
+                return Coordinate(x, max(y - totalToMove, maxMove))
+            }
         }
     }
+
+    override fun toString(): String {
+        return "Coordinate(x=$x, y=$y)"
+    }
+
 }
 
 class SnakePart(val direction: Direction,
                 val start: CellPosition,
                 val next: CellPosition,
-                val coordinate: Coordinate,
-                val prevDirection: Direction) {
-
+                val coordinate: Coordinate) {
+    private val maxMove = when(direction) {
+        Direction.RIGHT -> next.x * Cell.CELL_SIZE
+        Direction.LEFT -> (next.x) * Cell.CELL_SIZE
+        Direction.DOWN -> next.y * Cell.CELL_SIZE
+        Direction.UP -> (next.y) * Cell.CELL_SIZE
+    }
     fun isCompletelyInNextCell(): Boolean {
         return when(direction) {
             Direction.RIGHT -> coordinate.x == (next.x.toInt() * Cell.CELL_SIZE)
-            Direction.LEFT -> coordinate.x == (next.x.toInt() * Cell.CELL_SIZE) - CELL_SIZE
-            Direction.DOWN -> coordinate.y == (next.y.toInt() * CELL_SIZE)
-            Direction.UP -> coordinate.y == ((next.y * CELL_SIZE) - CELL_SIZE)
+            Direction.LEFT -> coordinate.x == (next.x.toInt() * Cell.CELL_SIZE)
+            Direction.DOWN -> coordinate.y == (next.y.toInt() * Cell.CELL_SIZE)
+            Direction.UP -> coordinate.y == (next.y.toInt() * Cell.CELL_SIZE)
         }
 
     }
     fun toNextCell(newDirection: Direction): SnakePart {
-        return SnakePart(newDirection, next, next.nextPosition(newDirection), coordinate, direction)
+        return SnakePart(newDirection, next, next.nextPosition(newDirection), coordinate)
     }
 
     override fun toString(): String {
-        return "SnakePart(direction=$direction, start=$start, next=$next, coordinate=$coordinate, prevDirection=$prevDirection)"
+        return "SnakePart(direction=$direction, start=$start, next=$next, coordinate=$coordinate)"
     }
 
+    fun move(moveTotal: Double): SnakePart {
+        val nextCoordinate = coordinate.move(moveTotal, direction, maxMove)
+        return SnakePart(direction, start, next, nextCoordinate)
+    }
 }
 
 class Snake(private val initialLength: Int = 0,
@@ -86,7 +104,7 @@ class Snake(private val initialLength: Int = 0,
     private lateinit var game: Game
     private var direction = initialDirection
     private var nextDirection: Direction? = null
-    private val cellPerSecond = (CELL_SIZE * 1)/4
+    private val cellPerSecond = (CELL_SIZE * 8)
     private val turns = mutableMapOf<CellPosition, Direction>()
 
     fun init(gameInstance: Game) {
@@ -95,7 +113,7 @@ class Snake(private val initialLength: Int = 0,
         for (x in 0 until initialLength) {
             val cellPosition = CellPosition(initialLength - 1 - x, y)
             val cell = game.getCell(cellPosition.x ,y)
-            snake.add(SnakePart(initialDirection, cellPosition , cellPosition.nextPosition(direction), Coordinate(cell.xcoord, cell.ycoord), initialDirection))
+            snake.add(SnakePart(initialDirection, cellPosition , cellPosition.nextPosition(direction), Coordinate(cell.xcoord, cell.ycoord)))
         }
     }
 
@@ -111,7 +129,7 @@ class Snake(private val initialLength: Int = 0,
     }
 
     fun update(interval: Double): Unit {
-        val totalToMove = cellPerSecond / interval;
+        val totalToMove =  interval/1000 * cellPerSecond;
         val head = snake[0]
 
         if (head.isCompletelyInNextCell()) {
@@ -122,16 +140,12 @@ class Snake(private val initialLength: Int = 0,
             }
             snake = snake.mapIndexed { index, part ->
                 val startCell = part.next
-                if (index == 1) {
-                    println("Turn contains ${part.next} ${turns.containsKey(part.next)} ${turns[part.next]}")
-                }
+
                 val directionToUse = if (turns.containsKey(part.next)) turns[part.next] else part.direction
-                val nextCell = startCell.nextPosition(direction)
+                val nextCell = startCell.nextPosition(directionToUse!!)
+
                 if (turns.containsKey(part.next) && index == snake.size - 1) {
                     turns.remove(part.next)
-                }
-                if (index == 1) {
-                    println("USING DIRECTION For index 1  ${directionToUse}")
                 }
                 part.toNextCell(directionToUse!!)
             }.toMutableList()
@@ -139,17 +153,8 @@ class Snake(private val initialLength: Int = 0,
         }
 
         snake = snake.mapIndexed { index, part ->
-
-            val maxMove = when(part.direction) {
-               Direction.RIGHT -> part.next.x * Cell.CELL_SIZE
-               Direction.LEFT -> (part.next.x ) * Cell.CELL_SIZE
-               Direction.DOWN -> part.next.y * Cell.CELL_SIZE
-               Direction.UP -> part.next.y * Cell.CELL_SIZE
-            }
-            if (index == 0) {
-                println("part direction ${part.direction} ${maxMove} ${part.next.x}")
-            }
-            SnakePart(part.direction, part.start, part.next, part.coordinate.move(totalToMove, part.direction, maxMove), part.prevDirection);
+            val newPart = part.move(totalToMove)
+            newPart!!
         }.toMutableList()
 
     }

@@ -20,15 +20,13 @@ fun main() {
 
     val game = Game(gameCanvasPair, boardCanvasPair)
     game.init()
-    var counter = 0
+
     fun render(timeStamp: Double) {
-        counter ++
         game.draw(timeStamp)
-        if (counter < 400) {
-            window.requestAnimationFrame {
-                render(it)
-            }
-       }
+        window.requestAnimationFrame {
+            render(it)
+        }
+
     }
     window.addEventListener("keyup", EventListener {
         val e = it as KeyboardEvent;

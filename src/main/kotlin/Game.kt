@@ -23,7 +23,7 @@ data class Theme(val boardShade1: String,
                  val foodColor: String
 )
 
-
+data class Dimension(val width: Int, val height: Int)
 
 enum class Direction {
     UP, DOWN, LEFT, RIGHT
@@ -38,7 +38,7 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     private val ycells = Cell.YCELLS
     private val xcells = Cell.XCELLS
     private val cw = Cell.CELL_SIZE
-    private val snake = Snake(initialLength = 3)
+    private val snake = Snake(initialLength = 10)
 
     private val gameCanvas = gameCanvasPair.first
     private val gameContext = gameCanvasPair.second
@@ -79,7 +79,7 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     }
     private var elapseInterval = 0.0
     private var lastTimestamp = 0.0
-    private var minInterval = 1000/120
+    private var minInterval = 1000/60
 
     fun drawBoard() {
 
@@ -108,7 +108,7 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     fun getCell(x: Int, y: Int): Cell {
         return cells[y][x]
     }
-
+    var agg = 0.0
     fun draw(timeStamp: Double) {
 
         if (lastTimestamp == 0.0) {
@@ -116,16 +116,18 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
             return
         }
         val diff = timeStamp - lastTimestamp
+        agg += diff
 
-        if (diff >= minInterval) {
+        if (agg >= minInterval) {
             clearGameCanvas()
-            snake.update(diff)
+            snake.update(agg)
 
             gameContext.fillStyle = theme.snakeColor
             snake.render().forEach { cell ->
                 gameContext.fillRect(cell.xcoord, cell.ycoord, cw, cw)
             }
             lastTimestamp = timeStamp
+            agg = 0.0
         }
     }
 
