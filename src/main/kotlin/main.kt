@@ -26,12 +26,9 @@ fun main() {
         window.requestAnimationFrame {
             render(it)
         }
-
     }
     window.addEventListener("keyup", EventListener {
         val e = it as KeyboardEvent;
-        println("Keycode pressed ${e.keyCode}");
-
         when (e.keyCode) {
             37 -> game.onDirectionChange(Direction.LEFT)
             38 -> game.onDirectionChange(Direction.UP)
