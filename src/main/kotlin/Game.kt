@@ -1,6 +1,7 @@
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.Image
+import kotlin.math.ceil
 import kotlin.random.Random
 
 class Cell(val xcoord: Double,
@@ -8,15 +9,12 @@ class Cell(val xcoord: Double,
            val cx: Int,
            val cy: Int
 ) {
-    fun moveX(move: Double): Cell {
-        return Cell(xcoord + move, ycoord, cx, cy)
-    }
 
     companion object {
         const val CELL_SIZE: Double = 18.0
-        const val MARGIN: Double = 0.0
         const val YCELLS: Int = 30
         const val XCELLS: Int = 60
+        val RENDER_INTERVAL: Double = ceil((1000 / 60).toDouble())
     }
 }
 data class Theme(val boardShade1: String,
@@ -35,12 +33,13 @@ val DEFAULT_THEME = Theme("#070709", "#121417", "#0466c8", "#0466c8" )
 
 class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingContext2D>,
            private val boardCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingContext2D>,
+           val foodList: List<Image>,
            private val theme: Theme = DEFAULT_THEME) {
 
     private val ycells = Cell.YCELLS
     private val xcells = Cell.XCELLS
     private val cw = Cell.CELL_SIZE
-    private val snake = Snake(initialLength = 10)
+    private val snake = Snake(initialLength = 6)
 
     private val gameCanvas = gameCanvasPair.first
     private val gameContext = gameCanvasPair.second
@@ -50,6 +49,9 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
 
     val width = ((xcells * Cell.CELL_SIZE)).toInt()
     val height = ((ycells * Cell.CELL_SIZE)).toInt()
+
+    var score: Int = 0
+    var isGameOver: Boolean = false
 
     init {
         gameCanvas.width = width
@@ -81,7 +83,6 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     }
     private var elapseInterval = 0.0
     private var lastTimestamp = 0.0
-    private var minInterval = 1000/60
 
     fun drawBoard() {
 
@@ -98,7 +99,7 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
             }
         }
     }
-
+    var foodPosition: CellPosition? = null
     fun init() {
         drawBoard()
         snake.init(this)
@@ -106,14 +107,14 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
         snake.render(gameContext)
 
         food = Food(this)
-        food.generateFood(snake)
+        foodPosition = food.generateFood(snake)
         gameContext.fillStyle = theme.foodColor
         food.render(gameContext)
     }
     fun getCell(x: Int, y: Int): Cell {
         return cells[y][x]
     }
-    var agg = 0.0
+    var aggregatedInterval = 0.0
     fun draw(timeStamp: Double) {
 
         if (lastTimestamp == 0.0) {
@@ -121,19 +122,22 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
             return
         }
         val diff = timeStamp - lastTimestamp
-        agg += diff
+        aggregatedInterval += diff
 
-        if (agg >= minInterval) {
+        if (aggregatedInterval >= Cell.RENDER_INTERVAL) {
             clearGameCanvas()
-            snake.update(agg)
-
+            snake.clear(gameContext)
+            val hasEatenFood = snake.update(aggregatedInterval)
+            if (hasEatenFood) {
+                foodPosition = food.generateFood(snake)
+            }
             gameContext.fillStyle = theme.snakeColor
             snake.render(gameContext)
 
             gameContext.fillStyle = theme.foodColor
             food.render(gameContext)
             lastTimestamp = timeStamp
-            agg = 0.0
+            aggregatedInterval = 0.0
         }
     }
 
@@ -150,8 +154,8 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
 class Food(val game: Game) {
 
     private lateinit var food: CellPosition
-    private var foodImg: String = ""
-    fun generateFood(snake: Snake) {
+    private var foodImg: Image? = null
+    fun generateFood(snake: Snake): CellPosition {
         while (true) {
             val x = Random.nextInt(0, Cell.XCELLS )
             val y = Random.nextInt(0, Cell.YCELLS )
@@ -162,16 +166,17 @@ class Food(val game: Game) {
                 break
             }
         }
-        foodImg = FoodImage.FOOD_IMAGES[Random.nextInt(0, FoodImage.FOOD_IMAGES.size)]
+        foodImg = game.foodList[Random.nextInt(0, game.foodList.size)]
+        return food
     }
 
     fun render(ctx: CanvasRenderingContext2D) {
         val cell = game.getCell(food.x, food.y)
-        val image = Image();
-        image.onload = {
-            ctx.drawImage(image, cell.xcoord, cell.ycoord)
+
+        if (foodImg != null) {
+            ctx.drawImage(foodImg!!, cell.xcoord, cell.ycoord)
         }
-        // ctx.fillRect(cell.xcoord, cell.ycoord, Cell.CELL_SIZE, Cell.CELL_SIZE)
-        image.src = foodImg
+
     }
+
 }

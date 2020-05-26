@@ -1,5 +1,6 @@
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
+import org.w3c.dom.Image
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventListener
 import org.w3c.dom.events.KeyboardEvent
@@ -17,15 +18,27 @@ fun main() {
 
     val gameCanvasPair = Pair(canvas, ctx)
     val boardCanvasPair = Pair(boardCanvas, boardCtx)
+    val foodList: List<Image> = FoodImage.FOOD_IMAGES.map {
+        val image = Image();
+        image.src = it
+        image
+    }
+    val game = Game(gameCanvasPair, boardCanvasPair, foodList)
 
-    val game = Game(gameCanvasPair, boardCanvasPair)
+    // load image
+
+
     game.init()
 
+   // var counter = 0;
     fun render(timeStamp: Double) {
         game.draw(timeStamp)
-        window.requestAnimationFrame {
-            render(it)
-        }
+       // counter++
+        //if (counter < 30) {
+            window.requestAnimationFrame {
+                render(it)
+            }
+       // }
     }
     window.addEventListener("keyup", EventListener {
         val e = it as KeyboardEvent;
