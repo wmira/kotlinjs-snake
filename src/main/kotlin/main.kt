@@ -23,35 +23,36 @@ fun main() {
         image.src = it
         image
     }
-    val game = Game(gameCanvasPair, boardCanvasPair, foodList)
-
-    // load image
-
+    val gameEnv = GameEnv(gameCanvasPair, boardCanvasPair, foodList)
+    val gameOptions = GameOptions(18.0, 6, 1000/60.toInt(), 40, 30)
+    val userOptions =  UserOptions(DEFAULT_THEME, GameSpeed.Brutal, true);
+    val game = Game(gameEnv, gameOptions, userOptions)
 
     game.init()
 
 
     fun render(timeStamp: Double) {
-        val shouldStop = game.draw(timeStamp)
-        if (!shouldStop) {
-            window.requestAnimationFrame {
-                render(it)
-            }
+        game.update(timeStamp)
+        game.render()
+
+        window.requestAnimationFrame {
+            render(it)
         }
 
+
     }
-    window.addEventListener("keyup", EventListener {
-        val e = it as KeyboardEvent;
-        when (e.keyCode) {
-            37 -> game.onDirectionChange(Direction.LEFT)
-            38 -> game.onDirectionChange(Direction.UP)
-            39 -> game.onDirectionChange(Direction.RIGHT)
-            40 -> game.onDirectionChange(Direction.DOWN)
-            else -> {
-                // do nothing
-            }
-        }
-    })
+//    window.addEventListener("keyup", EventListener {
+//        val e = it as KeyboardEvent;
+//        when (e.keyCode) {
+//            37 -> game.onDirectionChange(Direction.LEFT)
+//            38 -> game.onDirectionChange(Direction.UP)
+//            39 -> game.onDirectionChange(Direction.RIGHT)
+//            40 -> game.onDirectionChange(Direction.DOWN)
+//            else -> {
+//                // do nothing
+//            }
+//        }
+//    })
     window.requestAnimationFrame {
         render(it)
     }
