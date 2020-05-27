@@ -74,7 +74,8 @@ class Coordinate(val x: Double, val y: Double) {
 class SnakePart(val direction: Direction,
                 val start: CellPosition,
                 val next: CellPosition,
-                val coordinate: Coordinate) {
+                val coordinate: Coordinate,
+                val isEatenPart: Boolean = false) {
     private val maxMove = when(direction) {
         Direction.RIGHT -> next.x * CELL_SIZE
         Direction.LEFT -> (next.x) * CELL_SIZE
@@ -104,15 +105,22 @@ class SnakePart(val direction: Direction,
     }
 }
 
+sealed class SnakeAction {
+    object EatenFood : SnakeAction()
+    object HitWallOrPart: SnakeAction()
+    object Moved: SnakeAction()
+}
+
 class Snake(private val initialLength: Int = 0,
             private val initialDirection: Direction = Direction.RIGHT) {
     private var snake = mutableListOf<SnakePart>()
     private lateinit var game: Game
     private var direction = initialDirection
     private var nextDirection: Direction? = null
-    private val cellPerSecond = (CELL_SIZE * 2)
+    private val cellPerSecond = (CELL_SIZE * 2.5)
     private val turns = mutableMapOf<CellPosition, Direction>()
     private val movePerTick: Double = cellPerSecond / Cell.RENDER_INTERVAL
+    private val gameOver = false
 
     fun init(gameInstance: Game) {
         val y = 0
@@ -158,14 +166,13 @@ class Snake(private val initialLength: Int = 0,
     }
     fun clear(gameContext: CanvasRenderingContext2D) {
         snake.forEachIndexed { index, part ->
-            //println("CLEARING ${part}")
             gameContext.clearRect(part.coordinate.x, part.coordinate.y, CELL_SIZE, CELL_SIZE)
         }
     }
-    fun update(interval: Double): Boolean {
+    fun update(interval: Double): SnakeAction {
         val elapse = interval.toInt()
         //val totalToMove =  interval/1000 * cellPerSecond;
-        val moveMultipler = (elapse - (elapse % 17))/17
+        val moveMultipler = (elapse - (elapse % Cell.RENDER_INTERVAL))/Cell.RENDER_INTERVAL
         val totalToMove = movePerTick * moveMultipler
         val head = snake[0]
 
@@ -176,10 +183,9 @@ class Snake(private val initialLength: Int = 0,
                 nextDirection = null
             }
             val foodPosition = game.foodPosition
-            val hasEatenFood = foodPosition != null && foodPosition.equals(head.next)
-            // this looks wrong, should be added on the tail as an overlay and revealed.
-            val newSnakePart = if (hasEatenFood) mutableListOf(addNewPart(head)) else mutableListOf()
-            val partToMerge = snake.mapIndexed { index, part ->
+            val hasEatenFood = foodPosition != null && foodPosition == head.next
+
+            val newSnake = snake.mapIndexed { index, part ->
                 val startCell = part.next
 
                 val directionToUse = if (turns.containsKey(part.next)) turns[part.next] else part.direction
@@ -190,16 +196,46 @@ class Snake(private val initialLength: Int = 0,
                 }
                 part.toNextCell(directionToUse!!)
             }.toMutableList()
-            newSnakePart.addAll(partToMerge)
-            snake = newSnakePart
-            return hasEatenFood;
+            if (hasEatenFood) {
+                // add a part at the end same position as last
+                val lastPart = newSnake[newSnake.size - 1]
+                val eatenPart = SnakePart(lastPart.direction, lastPart.start, lastPart.start, lastPart.coordinate, true)
+                newSnake.add(eatenPart)
+            }
+            snake = newSnake
+            return if (hasEatenFood) SnakeAction.EatenFood else SnakeAction.Moved
         }
 
+        // check if we hit something if we move
+        val possibleHeadThatHit = head.move(totalToMove)
+        val isGameOver = hitsWallOrPart(possibleHeadThatHit)
+        if (isGameOver) {
+            return SnakeAction.HitWallOrPart
+        }
         snake = snake.mapIndexed { index, part ->
-            val newPart = part.move(totalToMove)
-            newPart!!
+            if (!part.isEatenPart) {
+                val newPart = part.move(totalToMove)
+                newPart!!
+            } else {
+                part
+            }
         }.toMutableList()
-        return false
+        return SnakeAction.Moved
+    }
+
+    private fun hitsWallOrPart(possibleHeadThatHit: SnakePart): Boolean {
+        val x = possibleHeadThatHit.coordinate.x
+        val y = possibleHeadThatHit.coordinate.y
+
+        if (x < 0 || (x + CELL_SIZE) > Cell.XCELLS * CELL_SIZE ||
+                y < 0 || (y + CELL_SIZE) > Cell.YCELLS * CELL_SIZE) {
+            return true
+        }
+        // check if we hit
+        return snake.filterIndexed { index, snakePart ->
+            index != 0 && (snakePart.start == possibleHeadThatHit.start ||
+                    snakePart.next == possibleHeadThatHit.next)
+        }.isNotEmpty()
     }
 
     private fun addNewPart(head: SnakePart): SnakePart {

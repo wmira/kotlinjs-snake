@@ -12,8 +12,8 @@ class Cell(val xcoord: Double,
 
     companion object {
         const val CELL_SIZE: Double = 18.0
-        const val YCELLS: Int = 30
-        const val XCELLS: Int = 60
+        const val YCELLS: Int = 20
+        const val XCELLS: Int = 40
         val RENDER_INTERVAL: Double = ceil((1000 / 60).toDouble())
     }
 }
@@ -51,7 +51,6 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
     val height = ((ycells * Cell.CELL_SIZE)).toInt()
 
     var score: Int = 0
-    var isGameOver: Boolean = false
 
     init {
         gameCanvas.width = width
@@ -115,30 +114,38 @@ class Game(private val gameCanvasPair: Pair<HTMLCanvasElement, CanvasRenderingCo
         return cells[y][x]
     }
     var aggregatedInterval = 0.0
-    fun draw(timeStamp: Double) {
-
+    var isGameOver = false
+    fun draw(timeStamp: Double): Boolean {
+        if (isGameOver) {
+            return isGameOver
+        }
         if (lastTimestamp == 0.0) {
             lastTimestamp = timeStamp
-            return
         }
         val diff = timeStamp - lastTimestamp
         aggregatedInterval += diff
 
         if (aggregatedInterval >= Cell.RENDER_INTERVAL) {
-            clearGameCanvas()
-            snake.clear(gameContext)
-            val hasEatenFood = snake.update(aggregatedInterval)
-            if (hasEatenFood) {
+
+            val action = snake.update(aggregatedInterval)
+            if (action == SnakeAction.EatenFood) {
                 foodPosition = food.generateFood(snake)
             }
-            gameContext.fillStyle = theme.snakeColor
-            snake.render(gameContext)
+            if (action == SnakeAction.Moved) {
+                clearGameCanvas()
+                gameContext.fillStyle = theme.snakeColor
+                snake.render(gameContext)
 
-            gameContext.fillStyle = theme.foodColor
-            food.render(gameContext)
-            lastTimestamp = timeStamp
-            aggregatedInterval = 0.0
+                gameContext.fillStyle = theme.foodColor
+                food.render(gameContext)
+                lastTimestamp = timeStamp
+                aggregatedInterval = 0.0
+            }
+            if (action == SnakeAction.HitWallOrPart) {
+                isGameOver = true
+            }
         }
+        return isGameOver
     }
 
     private fun clearGameCanvas() {

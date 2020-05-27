@@ -30,15 +30,15 @@ fun main() {
 
     game.init()
 
-   // var counter = 0;
+
     fun render(timeStamp: Double) {
-        game.draw(timeStamp)
-       // counter++
-        //if (counter < 30) {
+        val shouldStop = game.draw(timeStamp)
+        if (!shouldStop) {
             window.requestAnimationFrame {
                 render(it)
             }
-       // }
+        }
+
     }
     window.addEventListener("keyup", EventListener {
         val e = it as KeyboardEvent;
@@ -55,5 +55,4 @@ fun main() {
     window.requestAnimationFrame {
         render(it)
     }
-    println("lol")
 }
