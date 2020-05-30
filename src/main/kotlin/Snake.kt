@@ -159,9 +159,9 @@ class Snake(private val initialLength: Int = 1,
     }
 
     private val unitSize = when(userOptions.gameSpeed) {
-        GameSpeed.Slow -> 2.0
+        GameSpeed.Slow -> 1.0
         GameSpeed.Normal -> 2.0
-        GameSpeed.Fast -> 4.0
+        GameSpeed.Fast -> 6.0
         GameSpeed.Brutal -> 9.0
     }
 
