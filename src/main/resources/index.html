@@ -4,15 +4,25 @@
     <meta charset="UTF-8">
     <title>kotlinjs-snake</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300&display=swap');
         html,body {
             width: 100%;
             height: 100%;
             margin: 0;
             padding: 0;
             overflow: hidden;
+            font-size: 1em;
+            font-family: 'Roboto Condensed', sans-serif;
         }
         * {
            box-sizing: border-box;
+        }
+        #container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
         }
         #game {
             position: relative;
@@ -33,12 +43,37 @@
             left: 0;
             z-index: 1;
         }
+        #newGameBtn {
+            font-size: .84em;
+        }
+
+        #panel {
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
-    <div id="game">
-        <canvas id="board"></canvas>
-        <canvas id="canvas"></canvas>
+    <div id="container">
+        <div id="game">
+            <div id="panel">
+                <div>
+                    <button id="newGameBtn">New Game</button>
+                    <select id="speed" value="Normal">
+                        <option value="Normal">Normal</option>
+                        <option value="Fast">Fast</option>
+                        <option value="Brutal">Brutal</option>
+                    </select>
+                </div>
+                <div>
+                    <div><span id="gameStatus">Score</span> <span id="scoreCont"/></div>
+                </div>
+            </div>
+            <div style="position: relative;">
+                <canvas id="board"></canvas>
+                <canvas id="canvas"></canvas>
+            </div>
+        </div>
     </div>
     <script src="kotlinjs-snake.js"></script>
 </body>
