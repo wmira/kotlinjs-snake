@@ -11,14 +11,15 @@ const val height = ((yCells * cellSize)).toInt()
 var speed: GameSpeed = GameSpeed.Normal
 val DEFAULT_THEME = Theme("#070709", "#121417", "#0466c8", "#0466c8" )
 val gameOptions = GameOptions(cellSize, 6, 1000/60.toInt(),  Dimension(width, height), -1)
-val userOptions =  UserOptions(DEFAULT_THEME, speed, true);
-
+val baseOptions =  UserOptions(DEFAULT_THEME, speed, true);
 fun setText(elementId: String, text: String) {
     val el = document.getElementById(elementId)
     if (el != null) {
         el.innerHTML = text
     }
 }
+
+
 
 fun setAttribute(elementId: String, attr: String, value: String) {
     val el = document.getElementById(elementId)
@@ -58,7 +59,7 @@ fun initDrawBoard(gameEnv: GameEnv, userOpts: UserOptions) {
     for (y in cells.indices) {
         val row = cells[y]
         val color1 = theme.boardShade1
-        val color2 = if (userOptions.showCellLines) theme.boardShade2 else color1
+        val color2 = if (baseOptions.showCellLines) theme.boardShade2 else color1
         val startColor = if ( y % 2 == 0 ) color1 else color2
         val endColor = if ( y % 2 != 0 ) color1 else color2
         for (x in row.indices) {
@@ -109,7 +110,7 @@ fun main() {
     val gameDiv = document.getElementById("game")
     gameDiv?.setAttribute("style", "width: ${width}px; height: ${height}px;")
 
-    initDrawBoard(gameEnv, userOptions)
+    initDrawBoard(gameEnv, baseOptions)
 
     // listen to some options
     val speedEl = getElement("speed") as HTMLSelectElement
@@ -127,30 +128,8 @@ fun main() {
     })
 
     document.getElementById("newGameBtn")?.addEventListener("click", {
+        val userOptions =  UserOptions(DEFAULT_THEME, speed, true);
         startNewGame(gameEnv, Game(gameEnv, gameOptions, userOptions), Human())
 
     })
 }
-
-
-//    fun render(timeStamp: Double) {
-//
-//        lastGameState = game.update(timeStamp)
-//        scoreCont!!.innerHTML = "${lastGameState.score}"
-//        game.render()
-//        if (lastGameState.gameStatus != GameStatus.GameOver) {
-//            window.requestAnimationFrame {
-//                render(it)
-//            }
-//        }
-//
-//
-//    }
-//    val newGameBtn = document.getElementById("newGameBtn")
-//    newGameBtn!!.addEventListener("click", {
-//        newGameBtn.setAttribute("disabled", "true")
-//        game.initEntities(player)
-//        window.requestAnimationFrame {
-//            render(it)
-//        }
-//    })
