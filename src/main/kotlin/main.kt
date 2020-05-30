@@ -1,13 +1,57 @@
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.Image
-import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventListener
 import org.w3c.dom.events.KeyboardEvent
 import kotlin.browser.document
 import kotlin.browser.window
 
+const val xCells = 40
+const val yCells = 22
+const val cellSize = 18.0
+const val width = ((xCells * cellSize)).toInt()
+const val height = ((yCells * cellSize)).toInt()
 
+val gameOptions = GameOptions(cellSize, 6, 1000/60.toInt(),  Dimension(width, height), -1)
+val userOptions =  UserOptions(DEFAULT_THEME, GameSpeed.Normal, true);
+
+fun prepareNewGame(gameEnv: GameEnv) {
+
+
+    val game: Game = Game(gameEnv, gameOptions, userOptions)
+    val scoreCont = document.getElementById("scoreCont")
+    val player = Human()
+    var lastGameState: GameState = GameState(0, GameStatus.Initial)
+    game.init()
+
+    fun render(timeStamp: Double) {
+
+        lastGameState = game.update(timeStamp)
+        scoreCont!!.innerHTML = "${lastGameState.score}"
+        game.render()
+        if (lastGameState.gameStatus != GameStatus.GameOver) {
+            window.requestAnimationFrame {
+                render(it)
+            }
+        }
+
+
+    }
+    val newGameBtn = document.getElementById("newGameBtn")
+    newGameBtn!!.addEventListener("click", {
+        newGameBtn.setAttribute("disabled", "true")
+        game.initEntities(player)
+        window.requestAnimationFrame {
+            render(it)
+        }
+    })
+    window.addEventListener("keyup", EventListener {
+        val e = it as KeyboardEvent;
+        if (lastGameState.gameStatus != GameStatus.GameOver) {
+            player.setInput(e.keyCode)
+        }
+    })
+}
 
 fun main() {
     val canvas = document.getElementById("canvas") as HTMLCanvasElement
@@ -23,37 +67,16 @@ fun main() {
         image.src = it
         image
     }
-    val gameEnv = GameEnv(gameCanvasPair, boardCanvasPair, foodList)
-    val gameOptions = GameOptions(18.0, 6, 1000/60.toInt(), 40, 30)
-    val userOptions =  UserOptions(DEFAULT_THEME, GameSpeed.Brutal, true);
-    val game = Game(gameEnv, gameOptions, userOptions)
+    val gameEnv = GameEnv(gameCanvasPair, boardCanvasPair, foodList, xCells, yCells)
 
-    game.init()
+    val gameDiv = document.getElementById("game")
+    gameDiv!!.setAttribute("style", "width: ${width}px; height: ${height}px;")
 
-
-    fun render(timeStamp: Double) {
-        game.update(timeStamp)
-        game.render()
-
-        window.requestAnimationFrame {
-            render(it)
-        }
+    prepareNewGame(gameEnv)
 
 
-    }
-//    window.addEventListener("keyup", EventListener {
-//        val e = it as KeyboardEvent;
-//        when (e.keyCode) {
-//            37 -> game.onDirectionChange(Direction.LEFT)
-//            38 -> game.onDirectionChange(Direction.UP)
-//            39 -> game.onDirectionChange(Direction.RIGHT)
-//            40 -> game.onDirectionChange(Direction.DOWN)
-//            else -> {
-//                // do nothing
-//            }
-//        }
-//    })
-    window.requestAnimationFrame {
-        render(it)
-    }
+
+
+
+
 }

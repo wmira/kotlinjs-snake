@@ -13,8 +13,8 @@ class Game(val gameEnv: GameEnv,
            val gameOptions: GameOptions,
            val userOptions: UserOptions) {
 
-    private val yCells = gameOptions.yCells
-    private val xCells = gameOptions.xCells
+    private val yCells = gameEnv.yCells
+    private val xCells = gameEnv.xCells
     private val cellSize = gameOptions.cellSize
     private lateinit var snake: Snake
     private val gameCanvasPair = gameEnv.gameCanvasPair
@@ -27,29 +27,22 @@ class Game(val gameEnv: GameEnv,
     private val boardCanvas = boardCanvasPair.first
     private val boardContext = boardCanvasPair.second
 
-    private val width = ((xCells * cellSize)).toInt()
-    private val height = ((yCells * cellSize)).toInt()
+    private val width = gameOptions.dimension.width
+    private val height = gameOptions.dimension.height
 
-    private val gameState: GameState = GameState(0, GameStatus.Initial)
+    private var gameState: GameState = GameState(0, GameStatus.Initial)
 
-//    init {
-//        gameCanvas.width = width
-//        gameCanvas.height = height
-//
-//        boardCanvas.width = width
-//        boardCanvas.height = height
-//    }
-    // cells of all position
-    private lateinit var cells: List<List<Cell>>
-//    private lateinit var food: Food
-//    init {
+    private val cells: List<List<Cell>> = gameEnv.cells
+    private var lastTimestamp = 0.0
+    private var deltaAgg = 0.0
 
-//
-//    }
-    private var elapseInterval = 0.0
+    private val foodCreator = FoodCreator(gameEnv, gameOptions)
+    private var food: Food? = null
+    private lateinit var player: Player
 
-    var foodPosition: CellPosition? = null
-
+    fun getSnake(): Snake {
+        return snake
+    }
     fun init() {
 
         gameCanvas.width = width
@@ -58,29 +51,9 @@ class Game(val gameEnv: GameEnv,
         boardCanvas.width = width
         boardCanvas.height = height
 
-        initCells()
         initDrawBoard()
-        initEntities()
     }
-    private fun initCells() {
 
-        val cellsList = mutableListOf<MutableList<Cell>>()
-        for (y in 0 until yCells) {
-            cellsList.add(mutableListOf())
-        }
-        for (y in 0 until yCells) {
-            val cellRow = cellsList[y]
-            for (x in 0 until xCells) {
-                val ycoord = if (y == 0) y.toDouble() else (cellSize * y)
-                val xcoord = if (x == 0) x.toDouble() else (cellSize * x)
-                cellRow.add(Cell(xcoord, ycoord, x, y))
-            }
-        }
-
-        cells = cellsList.map {
-            it.toList()
-        }
-    }
     private fun initDrawBoard() {
         gameCanvas.clear()
         boardCanvas.clear()
@@ -100,20 +73,21 @@ class Game(val gameEnv: GameEnv,
         }
     }
 
-    private fun initEntities() {
+    fun initEntities(humanPlayer: Player) {
+
         snake = Snake(gameOptions.snakeSize, gameOptions, userOptions, cells)
+
         //snake.init()
         gameContext.fillStyle = theme.snakeColor
         snake.render(gameContext)
 
-//        food = Food(this)
-//        foodPosition = food.generateFood(snake)
-//        gameContext.fillStyle = theme.foodColor
-//        food.render(gameContext)
+        food = foodCreator.generateFood(snake.getParts())
+        if (food != null) {
+            gameContext.fillStyle = theme.foodColor
+            renderFood(gameContext, food)
+        }
+        player = Robot(this)
     }
-
-    private var lastTimestamp = 0.0
-    private var deltaAgg = 0.0
 
     /**
      * @param delta the number of millis elapsed before we were initially called
@@ -126,51 +100,38 @@ class Game(val gameEnv: GameEnv,
         lastTimestamp = currentTimestamp
         deltaAgg += delta
         if (deltaAgg < gameOptions.refreshInterval) {
-            return GameState(0, GameStatus.Initial)
+            return gameState
         }
 
         val snakeUnitsToMove = (deltaAgg / gameOptions.refreshInterval).toInt()
         deltaAgg = 0.0
-        //for (unit in 0 until snakeUnitsToMove) {
-            snake.update()
-        //}
-
-        return GameState(0, GameStatus.Initial)
+        for (unit in 0 until snakeUnitsToMove) {
+            val snakeStatus = snake.update(food, player)
+            if (snakeStatus == SnakeStatus.HasEatenFood) {
+                food = foodCreator.generateFood(snake.getParts())
+                gameState = gameState.incrementScore()
+            } else if (snakeStatus == SnakeStatus.HasHitWallOrBody) {
+                return gameState.gameOver()
+            }
+            // continue
+        }
+        return gameState
     }
-    fun render(): Boolean {
-//        if (isGameOver) {
-//            return isGameOver
-//        }
-//        if (lastTimestamp == 0.0) {
-//            lastTimestamp = timeStamp
-//        }
-//        val diff = timeStamp - lastTimestamp
-//        aggregatedInterval += diff
-//
-//        if (aggregatedInterval >= Cell.RENDER_INTERVAL) {
-//
-//            val action = snake.update(aggregatedInterval)
-//            if (action == SnakeAction.EatenFood) {
-//                foodPosition = food.generateFood(snake)
-//            }
-//            if (action == SnakeAction.Moved) {
-                clearGameCanvas()
-                gameContext.fillStyle = theme.snakeColor
-                snake.render(gameContext)
+    fun render() {
 
-//                gameContext.fillStyle = theme.foodColor
-//                food.render(gameContext)
-//                lastTimestamp = timeStamp
+        clearGameCanvas()
+        gameContext.fillStyle = theme.snakeColor
+        snake.render(gameContext)
 
-//            }
-//            if (action == SnakeAction.HitWallOrPart) {
-//                isGameOver = true
-//            }
-//        }
-//        return isGameOver
-        return false
+        gameContext.fillStyle = theme.foodColor
+        renderFood(gameContext, food)
+
     }
-//
+
+    fun getFood(): Food? {
+        return food
+    }
+
     private fun clearGameCanvas() {
         gameContext.clearRect(0.0, 0.0, gameCanvas.width * 1.0, gameCanvas.height * 1.0)
     }
@@ -178,35 +139,45 @@ class Game(val gameEnv: GameEnv,
 //    fun onDirectionChange(direction: Direction) {
 //        snake.changeDirection(direction)
 //    }
+
+    private fun renderFood(ctx: CanvasRenderingContext2D, food: Food?) {
+        if (food != null) {
+            val cell = gameEnv.getCell(food.position.x, food.position.y)
+            ctx.drawImage(gameEnv.foodList[food.imageIndex], cell.xcoord, cell.ycoord)
+        }
+    }
+
 }
-//
-//
-//class Food(val game: Game) {
-//
-//    private lateinit var food: CellPosition
-//    private var foodImg: Image? = null
-//    fun generateFood(snake: Snake): CellPosition {
-//        while (true) {
-//            val x = Random.nextInt(0, Cell.XCELLS )
-//            val y = Random.nextInt(0, Cell.YCELLS )
-//            if (snake.isPartInPosition(x, y) ) {
-//                continue
-//            } else {
-//                food = CellPosition(x, y)
-//                break
-//            }
-//        }
-//        foodImg = game.foodList[Random.nextInt(0, game.foodList.size)]
-//        return food
-//    }
-//
-//    fun render(ctx: CanvasRenderingContext2D) {
-//        val cell = game.getCell(food.x, food.y)
-//
-//        if (foodImg != null) {
-//            ctx.drawImage(foodImg!!, cell.xcoord, cell.ycoord)
-//        }
-//
-//    }
-//
-//}
+
+class FoodCreator(val env: GameEnv, val gameOptions: GameOptions) {
+
+
+    private var foodImg: Image? = null
+    private fun hasSnakePart(snakeParts: List<SnakePart>, x: Int, y: Int): Boolean {
+        for (part in snakeParts) {
+            if (part.start.x == x && part.start.y == y ) {
+                return true
+            }
+        }
+        return false
+    }
+    fun generateFood(snakeParts: List<SnakePart>): Food? {
+        val maxIter = env.xCells * env.yCells
+        var position: CellPosition? = null
+        for(i in 0 until maxIter) {
+            val x = Random.nextInt(0, env.xCells )
+            val y = Random.nextInt(0, env.yCells )
+            if (hasSnakePart(snakeParts, x, y)) {
+                continue
+            } else {
+                position = CellPosition(x, y)
+                break
+            }
+        }
+        if (position != null) {
+            return Food(position, Random.nextInt(0, env.foodList.size))
+        }
+        return null
+    }
+
+}
